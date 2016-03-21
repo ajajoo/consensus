@@ -102,6 +102,6 @@ if __name__ == '__main__':
         for line in hf:
             x = line.split()
             hosts[int(x[0])] = x[1]
-    editFile(processScript,[0,1,2,3,4],['lPort = '+str(lPort)+'\n','mPort = '+str(mPort)+'\n','mHost = \"'+str(mHost)+'\"\n','otherHosts = '+str(hosts)+'\n','waitTill = '+str(time.time()+5)+'\n'])
+    editFile(processScript,[0,1,2,3,4],['lPort = '+str(lPort)+'\n','mPort = '+str(mPort)+'\n','mHost = \"'+str(mHost)+'\"\n','otherHosts = '+str(hosts)+'\n','waitTill = '+str(time.time()+len(hosts))+'\n'])
     for hid in hosts:
         Host(hid, hosts[hid], processScript)# uname, pwd)
