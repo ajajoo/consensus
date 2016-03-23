@@ -1,8 +1,8 @@
 lPort = 5345
-mPort = 56022
+mPort = 47749
 mHost = "128.10.12.131"
 otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu06.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
-waitTill = 1458703923.41
+waitTill = 1458704245.56
 maxMsgLen = 1024
 import sys
 import os
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         # formatting global parameters
     setUpCommonParameters()
         # loop is for making all the processes start together
-    sleep(waitTill-time.time())
+    time.sleep(waitTill-time.time())
         # making udp socket to listen
     listner = socket(AF_INET, SOCK_DGRAM)
     listner.bind((myName,lPort))
