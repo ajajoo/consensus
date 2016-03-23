@@ -22,6 +22,7 @@ def checkArgValidity():
         raiseError(message="Too few arguments.", exit = True)
     if len(sys.argv)>7:
         raiseError(message="Too many arguments.", exit = True)
+    port = 0
     for x in range(1,len(sys.argv),2):
         if(sys.argv[x])=="-p":  #ports
             port = sys.argv[x+1]
@@ -31,14 +32,14 @@ def checkArgValidity():
         pass
     else:
         raiseError(message="Port is out of range.", exit = True)
-    
+    hostFile =""
     for x in range(1,len(sys.argv),2):
         if(sys.argv[x])=="-h":   #hostFile
             hostFile= sys.argv[x+1]
     numHost = sum(1 for line in open(hostFile))
     if numHost<1:
         raiseError(message="Hostfile is empty", exit = True)
-    
+    maxCrashes = -1
     for x in range(1,len(sys.argv),2):
         if(sys.argv[x])=="-f":   #maxCrashes
             maxCrashes = sys.argv[x+1]
