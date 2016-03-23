@@ -1,8 +1,8 @@
 lPort = 5345
-mPort = 47749
+mPort = 53939
 mHost = "128.10.12.131"
 otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu06.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
-waitTill = 1458704245.56
+waitTill = 1458704772.1
 maxMsgLen = 1024
 import sys
 import os
@@ -68,13 +68,12 @@ def propose(hName, value):
 if __name__ == "__main__":
         # formatting global parameters
     setUpCommonParameters()
-        # loop is for making all the processes start together
-    time.sleep(waitTill-time.time())
         # making udp socket to listen
     listner = socket(AF_INET, SOCK_DGRAM)
     listner.bind((myName,lPort))
     sendLog("binded",0)
-    time.sleep(2*len(otherHosts))
+        #sleeping to ensure that every one gets binded before anyone starts sending
+    time.sleep(3*len(otherHosts))
     propose("",myId)
         #entering into infi loop
     timeout = 1*len(otherHosts)
