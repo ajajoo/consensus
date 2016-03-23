@@ -9,7 +9,9 @@ import socket
 import SocketServer
 from subprocess import Popen, PIPE
 import time
+from select import select
 
+globalmsgarr=[]
 def raiseError(message="", exit = False, exitCode = 1):
     print message
     if exit:
@@ -60,27 +62,32 @@ def editFile(filePath,lineNums,newLines):
         f.write(line)
     f.close()
 
-class ForkingTCPRequestHandler(SocketServer.BaseRequestHandler):
-    def handle(self):# change this appropriately
-    	msg = self.request.recv(1024)
-        print(msg)
-        #self.request.sendall(1)
-
-class ForkingTCPServer(SocketServer.ForkingMixIn, SocketServer.TCPServer): # its necessary to pass ForkingMixIn 
-    pass
-
 def setUpMessagePrinter(): 
-    server = ForkingTCPServer((socket.gethostname(), 1211), ForkingTCPRequestHandler)
-    #server.timeout = 90
-    server.max_children = 100
-    server.request_queue_size = 100
+    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    s.bind((socket.gethostname(),0))
+    port = s.getsockname()[1]
+    s.listen(50)
     #ip, port = server.server_address # Fork a new process with the server -- that process will then fork one more process for each request
+    timeout = 50
+    inputsockets = [s]
     t = os.fork()
     if  t==0:
-    	print "Message printer at: ", os.getpid()
-    	server.serve_forever()
-    return server.server_address
-
+        while True:
+            rlist, wlist, xlist = select(inputsockets,[],[],timeout)
+            if not rlist and not wlist and not xlist:
+                s.close()
+                sys.exit(0)
+            for insock in rlist:
+                if insock is s:
+                    new_socket, addr = s.accept()
+                    inputsockets.append(new_socket)      
+                else:
+                    data = insock.recv(1024)
+                    if data:
+                        print data
+                        insock.close()
+                        inputsockets.remove(insock)
+    return (socket.gethostbyname(socket.gethostname()),port)
 
 class Host(object):
     def __init__(self, hid, hname, pathToScript):# uname, pwd):
