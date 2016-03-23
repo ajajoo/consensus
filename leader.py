@@ -22,29 +22,34 @@ def checkArgValidity():
         raiseError(message="Too few arguments.", exit = True)
     if len(sys.argv)>7:
         raiseError(message="Too many arguments.", exit = True)
-    
-    arg = sys.argv[2]   #ports
-    if (arg.isdigit()==False):
+    for x in range(1,len(sys.argv),2):
+        if(sys.argv[x])=="-p":  #ports
+            port = sys.argv[x+1]
+    if (port.isdigit()==False):
         raiseError(message="Port should be integer.", exit = True)
-    elif 1023<int(arg)<65536:
+    elif 1023<int(port)<65536:
         pass
     else:
         raiseError(message="Port is out of range.", exit = True)
     
-    arg = sys.argv[4]   #hostFile
-    numHost = sum(1 for line in open(arg))
+    for x in range(1,len(sys.argv),2):
+        if(sys.argv[x])=="-h":   #hostFile
+            hostFile= sys.argv[x+1]
+    numHost = sum(1 for line in open(hostFile))
     if numHost<1:
         raiseError(message="Hostfile is empty", exit = True)
     
-    arg = sys.argv[6]   #maxCrashes
-    if (arg.isdigit()==False):
+    for x in range(1,len(sys.argv),2):
+        if(sys.argv[x])=="-f":   #maxCrashes
+            maxCrashes = sys.argv[x+1]
+    if (maxCrashes.isdigit()==False):
         raiseError(message="Number of max crash should be integer.", exit = True)
-    elif 0<int(arg)<numHost-2:
+    elif 0<int(maxCrashes)<numHost-2:
         pass
     else:
         raiseError(message="Max crash is out of range.", exit = True)
 
-    return int(sys.argv[2]), sys.argv[4] ,int(sys.argv[6])
+    return int(port), hostFile, int(maxCrashes)
 
 def getLoginInfo():
     uname = raw_input("Please enter user name to be used to login on other: ")

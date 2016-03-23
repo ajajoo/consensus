@@ -1,8 +1,8 @@
-lPort = 5252
+lPort = 5345
 mPort = 1211
 mHost = "128.10.12.131"
 otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu06.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
-waitTill = 1458535442.27
+waitTill = 1458703415.15
 maxMsgLen = 1024
 import sys
 import os
@@ -16,6 +16,7 @@ emptyVal = -2
 myId = emptyVal
 currentValues = {}
 received = 0
+state = 0   #
 
 def sendLog(msg,level):
     if level<1:
