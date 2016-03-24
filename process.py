@@ -3,6 +3,7 @@ mPort = 53939
 mHost = "128.10.12.131"
 otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu06.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
 waitTill = 1458704772.1
+maxCrashes = 0
 maxMsgLen = 1024
 import sys
 import os
@@ -11,12 +12,27 @@ from select import select
 import SocketServer
 from subprocess import Popen, PIPE
 import time
+import random
+from sets import Set
 myName = gethostname()
 emptyVal = -2
+heartBeat = -3
+voteRequest = -4
+acceptVoteRequest = -5
+rejectVoteRequest = -6
 myId = emptyVal
 currentValues = {}
-received = 0
-state = 0   #
+currentLeader = emptyVal
+acceptedHosts = Set([])
+currentState = 0   # 0 for follower 1 for candidate 2 for leader
+leader = 2; candidate = 1; follower = 0;
+currentTerm = 0 # everyone starts in 0th term
+currentElectionRound = 0
+timeoutRangeMin = 100 # this is in millisecond
+timeoutRangeMax = 500 # this is in millisecond
+electionTimeout = 0 # this will be set in main for the first time
+heartBeatTimeout = 0 # useful only if I am leader
+votedForThisTerm = False
 
 def sendLog(msg,level):
     if level<1:
@@ -38,13 +54,55 @@ def setUpCommonParameters():    # deletes self from host dict and sets myId
             myId = i
             break
 
+def sendVoteRequestToAll(): 
+    for host in otherHosts.keys():
+        sendVoteRequetTo(host)
+
+def sendVoteRequestTo(host):
+    sendTo(host,voteRequest)
+
+def sendHeartBeatToAll():
+    for host in otherHosts.keys():
+        sendHeartBeatTo(host)
+    refreshHeartBeatTimeout()
+
+def sendHeartBeatTo(hid):
+    if currentState == leader:
+        sendTo(hid,heartBeat)
+
+def refreshHeartBeatTimeout():
+    global heartBeatTimeout
+    heartBeatTimeout = int(round(time.time()*1000)+timeoutRangeMin/2)
+
+def setCurrentTermTo(this): # sets only if this is greater than currentTerm
+    global currentTerm
+    global votedForThisTerm
+    if this > currentTerm:
+        currentTerm = this
+        votedForThisTerm = False
+
+def setCurrentLeaderTo(this):
+    global currentLeader
+    if currentLeader != this:
+        sendLog("New leader is Node: "+str(this),2)
+    currentLeader = this
+
+def setCurrentStateTo(this):
+    global currentState
+    currentState = this
+
+def refreshElectionTimeout():
+    global electionTimeout
+    electionTimeout = int(round(time.time()*1000)+random.uniform(timeoutRangeMin,timeoutRangeMax))
+
 def sendToAll(value):
-    for host in otherHosts.values():
+    for host in otherHosts.keys():
         sendTo(host,value)
 
-def sendTo(hName, value):
+def sendTo(hid, value):
+    hName = otherHosts[hid]
     s = socket(AF_INET,SOCK_DGRAM)
-    data = str(myId)+" "+str(value)
+    data = str(myId)+" "+str(currentTerm)+" "+str(value)
     s.sendto(data, (hName,lPort))
     s.close()
     sendLog("sending: "+ str(value) +" to : "+hName,0)
@@ -52,18 +110,74 @@ def sendTo(hName, value):
 def recvMsg(sock):
     msg, addr = sock.recvfrom(maxMsgLen)
     msg = msg.split()
-    senderId = int(msg[0])
-    value = int(msg[1])
-    currentValues[senderId] = value
-    sendLog("recvd: "+ str(value) +" from : "+str(senderId),0)
+    sendersId = int(msg[0])
+    sendersTerm = int(msg[1])
+    sendersValue = int(msg[2])
+    sendLog("recvd: "+ str(sendersValue) +" from : "+str(sendersId),0)
+    actOnMsg(sendersId, sendersTerm, sendersValue)
 
-def propose(hName, value):
-    sendLog("starting propose",0)
-    currentValues[myId] = value
-    if hName == "":
-        sendToAll(value)
+def voteFor(this): 
+    global votedForThisTerm
+    votedForThisTerm = True
+    if this != myId:
+        sendTo(this,acceptVoteRequest)
     else:
-        sendTo(hName, value)
+        voteRequestAcceptedBy(myId)
+    refreshElectionTimeout()
+
+def voteRequestAcceptedBy(this):
+    global acceptedHosts
+    global currentElectionRound
+    acceptedHosts.add(this)
+    if len(acceptedHosts)> ((len(otherHosts)+1)/2):
+        currentElectionRound +=1
+        if currentElectionRound > maxCrashes:
+            becomeLeader()
+
+def becomeLeader():
+    setCurrentStateTo(leader)
+    setCurrentLeaderTo(myId)
+    sendLog("Became leader",2)
+    sendHeartBeatToAll()
+
+def actOnMsg(sendersId, sendersTerm, sendersValue):
+    if currentTerm>sendersTerm:
+        return
+    elif currentTerm == sendersTerm:
+        if sendersValue == heartBeat:
+            refreshElectionTimeout()
+            setCurrentStateTo(follower)
+            if currentLeader != sendersId:
+                setCurrentLeaderTo(sendersId)
+        elif sendersValue == voteRequest:
+            if votedForThisTerm or currentState == candidate:
+                sendTo(sendersId,rejectVoteRequest)
+            else:
+                voteFor(sendersId)
+        elif sendersValue == acceptVoteRequest:
+            voteRequestAcceptedBy(sendersId)
+    else:
+        setCurrentTermTo(sendersTerm)
+        setCurrentStateTo(follower)
+        if sendersValue == heartBeat:
+            refreshElectionTimeout()
+            if currentLeader != sendersId:
+                setCurrentLeaderTo(sendersId)
+        elif sendersValue == voteRequest:
+            if votedForThisTerm or currentState == candidate:
+                sendTo(sendersId,rejectVoteRequest)
+            else:
+                voteFor(sendersId)
+
+def initiateElection():
+    sendLog("Initiating Election",2)
+    acceptedHosts = Set([])
+    setCurrentTermTo(currentTerm + 1)
+    global currentElectionRound
+    currentElectionRound = 0
+    setCurrentStateTo(candidate)
+    voteFor(myId)
+    sendVoteRequestToAll()
 
 if __name__ == "__main__":
         # formatting global parameters
@@ -72,16 +186,21 @@ if __name__ == "__main__":
     listner = socket(AF_INET, SOCK_DGRAM)
     listner.bind((myName,lPort))
     sendLog("binded",0)
-        #sleeping to ensure that every one gets binded before anyone starts sending
-    time.sleep(3*len(otherHosts))
-    propose("",myId)
-        #entering into infi loop
+        # sleeping to ensure that every one gets binded before anyone starts sending
+    time.sleep(2*len(otherHosts)+15)
+    refreshElectionTimeout()
+    refreshHeartBeatTimeout()
     timeout = 1*len(otherHosts)
-    timeoutAt = time.time()+timeout
+    timeoutAt = time.time()+10*60
+        # entering into infi loop
     while time.time()<timeoutAt:
         reader, writer, excep = select([listner],[],[],timeout)
         if reader:
             recvMsg(reader[0])
+        if electionTimeout<=int(round(time.time()*1000)):
+            initiateElection()
+        if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
+            sendHeartBeatToAll()
     sendLog("Leader is "+str(max(currentValues.values())),2)
     sendLog("currentVal is: "+str(currentValues.values()),0)
 
