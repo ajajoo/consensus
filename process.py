@@ -38,7 +38,7 @@ def sendLog(msg,level):
     if level<1:
         return
     #print(msg)
-    msg = time.strftime("%H:%M:%S", time.localtime(time.time())) + " -- HID: "+str(myId)+" -- "+msg
+    msg = time.strftime("%H:%M:%S", time.localtime(time.time())) + " -- HID: "+str(myId)+ " --  Current Term: " + str(currentTerm) + " -- " +msg
     sock = socket(AF_INET,SOCK_STREAM)
     sock.connect((mHost, mPort))
     try:
@@ -56,13 +56,13 @@ def setUpCommonParameters():    # deletes self from host dict and sets myId
 
 def sendVoteRequestToAll(): 
     for host in otherHosts.keys():
-        sendVoteRequetTo(host)
+        sendVoteRequestTo(host)
 
 def sendVoteRequestTo(host):
     sendTo(host,voteRequest)
 
 def sendHeartBeatToAll():
-    for host in otherHosts.keys():
+g   for host in otherHosts.keys():
         sendHeartBeatTo(host)
     refreshHeartBeatTimeout()
 
@@ -86,6 +86,10 @@ def setCurrentLeaderTo(this):
     if currentLeader != this:
         sendLog("New leader is Node: "+str(this),2)
     currentLeader = this
+
+def setCurrentElectionRoundTo(this):
+    global currentElectionRound
+    currentElectionRound = this
 
 def setCurrentStateTo(this):
     global currentState
@@ -130,9 +134,10 @@ def voteRequestAcceptedBy(this):
     global currentElectionRound
     acceptedHosts.add(this)
     if len(acceptedHosts)> ((len(otherHosts)+1)/2):
-        currentElectionRound +=1
         if currentElectionRound > maxCrashes:
             becomeLeader()
+        else:
+            startNewElectionRound()
 
 def becomeLeader():
     setCurrentStateTo(leader)
@@ -171,11 +176,13 @@ def actOnMsg(sendersId, sendersTerm, sendersValue):
 
 def initiateElection():
     sendLog("Initiating Election",2)
-    acceptedHosts = Set([])
     setCurrentTermTo(currentTerm + 1)
-    global currentElectionRound
-    currentElectionRound = 0
+    setCurrentElectionRoundTo(0)
     setCurrentStateTo(candidate)
+
+def startNewElectionRound()
+    setCurrentElectionRoundTo(currentElectionRound+1)
+    acceptedHosts = Set([])
     voteFor(myId)
     sendVoteRequestToAll()
 
