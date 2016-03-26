@@ -1,9 +1,9 @@
-lPort = 5345
-mPort = 53939
-mHost = "128.10.12.131"
-otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu06.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
-waitTill = 1458704772.1
-maxCrashes = 0
+lPort = 7000
+mPort = 55084
+mHost = "128.10.12.136"
+otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu12.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu11.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
+waitTill = 1459007150.83
+maxCrashes = 3
 maxMsgLen = 1024
 import sys
 import os
@@ -31,11 +31,13 @@ currentState = 0   # 0 for follower 1 for candidate 2 for leader
 leader = 2; candidate = 1; follower = 0;
 currentTerm = 0 # everyone starts in 0th term
 currentElectionRound = 0
-timeoutRangeMin = 100 # this is in millisecond
-timeoutRangeMax = 500 # this is in millisecond
+timeoutRangeMin = 25000 # this is in millisecond
+timeoutRangeMax = 35000 # this is in millisecond
 electionTimeout = 0 # this will be set in main for the first time
 heartBeatTimeout = 0 # useful only if I am leader
 votedForThisTerm = False
+votedFor = emptyVal
+countdown = 0
 
 def sendLog(msg,level):
     if level<1:
@@ -51,7 +53,7 @@ def sendLog(msg,level):
 
 def setUpCommonParameters():    # deletes self from host dict and sets myId
     global myId
-    global otherHosts
+    #global otherHosts
     for i in otherHosts:
         if otherHosts[i] == myName:
             del otherHosts[i]
@@ -78,7 +80,7 @@ def sendVoteRequestTo(host):
 def died(this):
     global otherHosts
     global respondedToHeartBeat
-    sendLog("Node "+this+" died",2)
+    sendLog("Node "+str(this)+" died",2)
     if this in otherHosts:
         del otherHosts[this]
     if this in respondedToHeartBeat:
@@ -89,14 +91,26 @@ def diedDetected(this):
     sendToAll(diedSuffix+this)
 
 def checkIfAnyOneDied():
+    temp = []
     for host in otherHosts:
         if host not in respondedToHeartBeat:
-            diedDetected(host)
+            temp.append(host)
+    for host in temp:
+        diedDetected(host)
+    temp = []
 
 def sendHeartBeatToAll():
+    global countdown
+    global respondedToHeartBeat
+    sendLog("Sending heartbeat",0)
+    countdown+=1
     checkIfAnyOneDied()
-    for host in otherHosts.keys():
-        sendHeartBeatTo(host)
+    respondedToHeartBeat = Set([])
+    if(countdown<5):
+    	for host in otherHosts.keys():
+	    sendHeartBeatTo(host)
+    else:
+	sys.exit(0)
     refreshHeartBeatTimeout()
 
 def sendHeartBeatTo(hid):
@@ -110,9 +124,11 @@ def refreshHeartBeatTimeout():
 def setCurrentTermTo(this): # sets only if this is greater than currentTerm
     global currentTerm
     global votedForThisTerm
+    global votedFor
     if this > currentTerm:
         currentTerm = this
         votedForThisTerm = False
+        votedFor = emptyVal
 
 def setCurrentLeaderTo(this):
     global currentLeader
@@ -121,22 +137,12 @@ def setCurrentLeaderTo(this):
     currentLeader = this
     setCurrentElectionRoundTo(0)
 
-def actOnHeartBeatReceivedFrom(this):
-    refreshElectionTimeout()
-    setCurrentStateTo(follower)
-    if currentLeader != this:
-        setCurrentLeaderTo(this)
-    sendHeartBeatResponseTo(this)
-
 def sendHeartBeatResponseTo(this):
     sendTo(this,heartBeatResponse)
 
 def setCurrentElectionRoundTo(this):
     global currentElectionRound
     currentElectionRound = this
-
-def heartBeatResponseReceivedFrom(this):
-    respondedToHeartBeat.add(this)    
 
 def setCurrentStateTo(this):
     global currentState
@@ -169,7 +175,9 @@ def recvMsg(sock):
 
 def voteFor(this): 
     global votedForThisTerm
+    global votedFor
     votedForThisTerm = True
+    votedFor = this
     if this != myId:
         sendTo(this,acceptVoteRequest)
     else:
@@ -186,19 +194,31 @@ def voteRequestAcceptedBy(this):
         else:
             startNewElectionRound()
 
-def becomeLeader():
-    setCurrentElectionRoundTo(0)
-    setCurrentStateTo(leader)
-    setCurrentLeaderTo(myId)
-    sendLog("Became leader",2)
-    fillRespondedToHeartBeat()
-    sendHeartBeatToAll()
+def heartBeatResponseReceivedFrom(this):
+    respondedToHeartBeat.add(this)    
+
+def actOnHeartBeatReceivedFrom(this):
+    sendLog("received heartbeat",0)
+    refreshElectionTimeout()
+    setCurrentStateTo(follower)
+    if currentLeader != this:
+        setCurrentLeaderTo(this)
+    sendHeartBeatResponseTo(this)
+
+def actOnVoteRequestFrom(this):
+    if votedForThisTerm or currentState == candidate:
+        if votedForThisTerm and votedFor == this:
+            sendTo(this,acceptVoteRequest)
+            return
+        sendTo(this,rejectVoteRequest)
+    else:
+        voteFor(this)
 
 def actOnMsg(sendersId, sendersTerm, sendersValue):
     if sendersValue == heartBeatResponse:
         heartBeatResponseReceivedFrom(sendersId)
         return
-    if sendersValue >= diedSuffix
+    if sendersValue >= diedSuffix:
         died(sendersValue - diedSuffix)
         return
     if currentTerm>sendersTerm:
@@ -207,10 +227,7 @@ def actOnMsg(sendersId, sendersTerm, sendersValue):
         if sendersValue == heartBeat:
             actOnHeartBeatReceivedFrom(sendersId)
         elif sendersValue == voteRequest:
-            if votedForThisTerm or currentState == candidate:
-                sendTo(sendersId,rejectVoteRequest)
-            else:
-                voteFor(sendersId)
+            actOnVoteRequestFrom(sendersId)
         elif sendersValue == acceptVoteRequest:
             voteRequestAcceptedBy(sendersId)
     else:
@@ -219,10 +236,17 @@ def actOnMsg(sendersId, sendersTerm, sendersValue):
         if sendersValue == heartBeat:
             actOnHeartBeatReceivedFrom(sendersId)
         elif sendersValue == voteRequest:
-            if votedForThisTerm or currentState == candidate:
-                sendTo(sendersId,rejectVoteRequest)
-            else:
-                voteFor(sendersId)
+            actOnVoteRequestFrom(sendersId)
+
+def becomeLeader():
+    if currentState == leader:
+        return
+    setCurrentElectionRoundTo(0)
+    setCurrentStateTo(leader)
+    setCurrentLeaderTo(myId)
+    sendLog("Became leader",2)
+    fillRespondedToHeartBeat()
+    sendHeartBeatToAll()
 
 def initiateElection():
     sendLog("Initiating Election",2)
@@ -251,16 +275,16 @@ if __name__ == "__main__":
     refreshHeartBeatTimeout()
     timeout = 1*len(otherHosts)
     timeoutAt = time.time()+10*60
-        # entering into infi loop
+        # entering into long listening loop
     while time.time()<timeoutAt:
         reader, writer, excep = select([listner],[],[],timeout)
         if reader:
             recvMsg(reader[0])
-        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and !contestingElection():
+        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and not contestingElection():
+            if currentLeader != emptyVal:
+                sendLog("Current Leader: "+str(currentLeader)+" crashed",2)
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
     sendLog("Leader is "+str(max(currentValues.values())),2)
-    sendLog("currentVal is: "+str(currentValues.values()),0)
-
-
+    #sendLog("currentVal is: "+str(currentValues.values()),0)
