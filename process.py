@@ -54,6 +54,9 @@ def setUpCommonParameters():    # deletes self from host dict and sets myId
             myId = i
             break
 
+def contestingElection():
+    return currentElectionRound > 0
+
 def sendVoteRequestToAll(): 
     for host in otherHosts.keys():
         sendVoteRequestTo(host)
@@ -62,7 +65,7 @@ def sendVoteRequestTo(host):
     sendTo(host,voteRequest)
 
 def sendHeartBeatToAll():
-g   for host in otherHosts.keys():
+   for host in otherHosts.keys():
         sendHeartBeatTo(host)
     refreshHeartBeatTimeout()
 
@@ -207,7 +210,7 @@ if __name__ == "__main__":
         reader, writer, excep = select([listner],[],[],timeout)
         if reader:
             recvMsg(reader[0])
-        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and currentElectionRound == 0:
+        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and !contestingElection():
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
