@@ -132,7 +132,7 @@ def setCurrentTermTo(this): # sets only if this is greater than currentTerm
 
 def setCurrentLeaderTo(this):
     global currentLeader
-    if currentLeader != this:
+    if currentLeader != this and this != emptyVal:
         sendLog("node "+str(this)+" is elected as new leader",2)
     currentLeader = this
     setCurrentElectionRoundTo(0)
