@@ -70,6 +70,10 @@ def fillRespondedToHeartBeat():
     for i in otherHosts:
         respondedToHeartBeat.add(i)
 
+def currentLeaderDied():
+    sendLog("leader node "+str(currentLeader)+" has crashed",2)
+    setCurrentLeaderTo(emptyVal)
+
 def sendVoteRequestToAll(): 
     for host in otherHosts.keys():
         sendVoteRequestTo(host)
@@ -85,6 +89,8 @@ def died(this):
         del otherHosts[this]
     if this in respondedToHeartBeat:
         respondedToHeartBeat.remove(this)
+    if this == currentLeader:
+        currentLeaderDied()
 
 def diedDetected(this):
     died(this)
@@ -281,7 +287,8 @@ if __name__ == "__main__":
             recvMsg(reader[0])
         if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and not contestingElection():
             if currentLeader != emptyVal:
-                sendLog("leader node "+str(currentLeader)+" has crashed",2)
+                currentLeaderDied()
+                diedDetected(currentLeader)
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
