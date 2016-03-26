@@ -16,33 +16,32 @@ def raiseError(message="", exit = False, exitCode = 1):
     print message
     if exit:
         sys.exit(exitCode)
+        
+def extractArgFor(thisOption): 
+    for x in range(1,len(sys.argv),2):
+        if(sys.argv[x])==thisOption:
+            return sys.argv[x+1]
+    return ""
 
 def checkArgValidity():
     if len(sys.argv)<7:
         raiseError(message="Too few arguments.", exit = True)
     if len(sys.argv)>7:
         raiseError(message="Too many arguments.", exit = True)
-    port = 0
-    for x in range(1,len(sys.argv),2):
-        if(sys.argv[x])=="-p":  #ports
-            port = sys.argv[x+1]
+    port = extractArgFor("-p")
     if (port.isdigit()==False):
         raiseError(message="Port should be integer.", exit = True)
     elif 1023<int(port)<65536:
         pass
     else:
         raiseError(message="Port is out of range.", exit = True)
-    hostFile =""
-    for x in range(1,len(sys.argv),2):
-        if(sys.argv[x])=="-h":   #hostFile
-            hostFile= sys.argv[x+1]
+    hostFile = extractArgFor("-h")
+    if hostFile == "":
+        raiseError(message="Hostfile is non existant", exit = True)
     numHost = sum(1 for line in open(hostFile))
     if numHost<1:
         raiseError(message="Hostfile is empty", exit = True)
-    maxCrashes = -1
-    for x in range(1,len(sys.argv),2):
-        if(sys.argv[x])=="-f":   #maxCrashes
-            maxCrashes = sys.argv[x+1]
+    maxCrashes = extractArgFor("-f")
     if (maxCrashes.isdigit()==False):
         raiseError(message="Number of max crash should be integer.", exit = True)
     elif 0<int(maxCrashes)<numHost-2:
@@ -74,7 +73,7 @@ def setUpMessagePrinter():
     port = s.getsockname()[1]
     s.listen(50)
     #ip, port = server.server_address # Fork a new process with the server -- that process will then fork one more process for each request
-    timeout = 50
+    timeout = 1000
     inputsockets = [s]
     t = os.fork()
     if  t==0:
