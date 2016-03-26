@@ -31,8 +31,8 @@ currentState = 0   # 0 for follower 1 for candidate 2 for leader
 leader = 2; candidate = 1; follower = 0;
 currentTerm = 0 # everyone starts in 0th term
 currentElectionRound = 0
-timeoutRangeMin = 25000 # this is in millisecond
-timeoutRangeMax = 35000 # this is in millisecond
+timeoutRangeMin = 150 # this is in millisecond
+timeoutRangeMax = 300 # this is in millisecond
 electionTimeout = 0 # this will be set in main for the first time
 heartBeatTimeout = 0 # useful only if I am leader
 votedForThisTerm = False
@@ -43,7 +43,7 @@ def sendLog(msg,level):
     if level<1:
         return
     #print(msg)
-    msg = time.strftime("%H:%M:%S", time.localtime(time.time())) + " -- HID: "+str(myId)+ " --  Current Term: " + str(currentTerm) + " -- " +msg
+    msg = time.strftime("%H:%M:%S", time.localtime(time.time())) + " Node "+str(myId)+": " +msg
     sock = socket(AF_INET,SOCK_STREAM)
     sock.connect((mHost, mPort))
     try:
@@ -80,7 +80,7 @@ def sendVoteRequestTo(host):
 def died(this):
     global otherHosts
     global respondedToHeartBeat
-    sendLog("Node "+str(this)+" died",2)
+    sendLog("Node "+str(this)+" died",0)
     if this in otherHosts:
         del otherHosts[this]
     if this in respondedToHeartBeat:
@@ -133,7 +133,7 @@ def setCurrentTermTo(this): # sets only if this is greater than currentTerm
 def setCurrentLeaderTo(this):
     global currentLeader
     if currentLeader != this:
-        sendLog("New leader is Node: "+str(this),2)
+        sendLog("node "+str(this)+" is elected as new leader",2)
     currentLeader = this
     setCurrentElectionRoundTo(0)
 
@@ -244,12 +244,12 @@ def becomeLeader():
     setCurrentElectionRoundTo(0)
     setCurrentStateTo(leader)
     setCurrentLeaderTo(myId)
-    sendLog("Became leader",2)
+    sendLog("node "+str(currentLeader)+" is elected as new leader",2)
     fillRespondedToHeartBeat()
     sendHeartBeatToAll()
 
 def initiateElection():
-    sendLog("Initiating Election",2)
+    sendLog("begin another leader election",2)
     setCurrentTermTo(currentTerm + 1)
     setCurrentElectionRoundTo(0)
     setCurrentStateTo(candidate)
@@ -268,13 +268,12 @@ if __name__ == "__main__":
         # making udp socket to listen
     listner = socket(AF_INET, SOCK_DGRAM)
     listner.bind((myName,lPort))
-    sendLog("binded",0)
         # sleeping to ensure that every one gets binded before anyone starts sending
     time.sleep(2*len(otherHosts)+15)
     refreshElectionTimeout()
     refreshHeartBeatTimeout()
     timeout = 1*len(otherHosts)
-    timeoutAt = time.time()+10*60
+    timeoutAt = time.time()+40*60
         # entering into long listening loop
     while time.time()<timeoutAt:
         reader, writer, excep = select([listner],[],[],timeout)
@@ -282,9 +281,7 @@ if __name__ == "__main__":
             recvMsg(reader[0])
         if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and not contestingElection():
             if currentLeader != emptyVal:
-                sendLog("Current Leader: "+str(currentLeader)+" crashed",2)
+                sendLog("leader node "+str(currentLeader)+" has crashed",2)
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
-    sendLog("Leader is "+str(max(currentValues.values())),2)
-    #sendLog("currentVal is: "+str(currentValues.values()),0)
