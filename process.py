@@ -86,6 +86,7 @@ def setCurrentLeaderTo(this):
     if currentLeader != this:
         sendLog("New leader is Node: "+str(this),2)
     currentLeader = this
+    setCurrentElectionRoundTo(0)
 
 def setCurrentElectionRoundTo(this):
     global currentElectionRound
@@ -140,6 +141,7 @@ def voteRequestAcceptedBy(this):
             startNewElectionRound()
 
 def becomeLeader():
+    setCurrentElectionRoundTo(0)
     setCurrentStateTo(leader)
     setCurrentLeaderTo(myId)
     sendLog("Became leader",2)
@@ -179,8 +181,9 @@ def initiateElection():
     setCurrentTermTo(currentTerm + 1)
     setCurrentElectionRoundTo(0)
     setCurrentStateTo(candidate)
+    startNewElectionRound()
 
-def startNewElectionRound()
+def startNewElectionRound():
     setCurrentElectionRoundTo(currentElectionRound+1)
     acceptedHosts = Set([])
     voteFor(myId)
@@ -204,7 +207,7 @@ if __name__ == "__main__":
         reader, writer, excep = select([listner],[],[],timeout)
         if reader:
             recvMsg(reader[0])
-        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader:
+        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and currentElectionRound == 0:
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
