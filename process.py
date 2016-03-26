@@ -20,10 +20,13 @@ heartBeat = -3
 voteRequest = -4
 acceptVoteRequest = -5
 rejectVoteRequest = -6
+heartBeatResponse = -7
+diedSuffix = 100
 myId = emptyVal
 currentValues = {}
 currentLeader = emptyVal
 acceptedHosts = Set([])
+respondedToHeartBeat = Set([])
 currentState = 0   # 0 for follower 1 for candidate 2 for leader
 leader = 2; candidate = 1; follower = 0;
 currentTerm = 0 # everyone starts in 0th term
@@ -48,14 +51,22 @@ def sendLog(msg,level):
 
 def setUpCommonParameters():    # deletes self from host dict and sets myId
     global myId
+    global otherHosts
     for i in otherHosts:
         if otherHosts[i] == myName:
             del otherHosts[i]
             myId = i
             break
+    fillRespondedToHeartBeat()
 
 def contestingElection():
     return currentElectionRound > 0
+
+def fillRespondedToHeartBeat(): 
+    global respondedToHeartBeat
+    respondedToHeartBeat = Set([])
+    for i in otherHosts:
+        respondedToHeartBeat.add(i)
 
 def sendVoteRequestToAll(): 
     for host in otherHosts.keys():
@@ -64,8 +75,27 @@ def sendVoteRequestToAll():
 def sendVoteRequestTo(host):
     sendTo(host,voteRequest)
 
+def died(this):
+    global otherHosts
+    global respondedToHeartBeat
+    sendLog("Node "+this+" died",2)
+    if this in otherHosts:
+        del otherHosts[this]
+    if this in respondedToHeartBeat:
+        respondedToHeartBeat.remove(this)
+
+def diedDetected(this):
+    died(this)
+    sendToAll(diedSuffix+this)
+
+def checkIfAnyOneDied():
+    for host in otherHosts:
+        if host not in respondedToHeartBeat:
+            diedDetected(host)
+
 def sendHeartBeatToAll():
-   for host in otherHosts.keys():
+    checkIfAnyOneDied()
+    for host in otherHosts.keys():
         sendHeartBeatTo(host)
     refreshHeartBeatTimeout()
 
@@ -91,9 +121,22 @@ def setCurrentLeaderTo(this):
     currentLeader = this
     setCurrentElectionRoundTo(0)
 
+def actOnHeartBeatReceivedFrom(this):
+    refreshElectionTimeout()
+    setCurrentStateTo(follower)
+    if currentLeader != this:
+        setCurrentLeaderTo(this)
+    sendHeartBeatResponseTo(this)
+
+def sendHeartBeatResponseTo(this):
+    sendTo(this,heartBeatResponse)
+
 def setCurrentElectionRoundTo(this):
     global currentElectionRound
     currentElectionRound = this
+
+def heartBeatResponseReceivedFrom(this):
+    respondedToHeartBeat.add(this)    
 
 def setCurrentStateTo(this):
     global currentState
@@ -148,17 +191,21 @@ def becomeLeader():
     setCurrentStateTo(leader)
     setCurrentLeaderTo(myId)
     sendLog("Became leader",2)
+    fillRespondedToHeartBeat()
     sendHeartBeatToAll()
 
 def actOnMsg(sendersId, sendersTerm, sendersValue):
+    if sendersValue == heartBeatResponse:
+        heartBeatResponseReceivedFrom(sendersId)
+        return
+    if sendersValue >= diedSuffix
+        died(sendersValue - diedSuffix)
+        return
     if currentTerm>sendersTerm:
         return
     elif currentTerm == sendersTerm:
         if sendersValue == heartBeat:
-            refreshElectionTimeout()
-            setCurrentStateTo(follower)
-            if currentLeader != sendersId:
-                setCurrentLeaderTo(sendersId)
+            actOnHeartBeatReceivedFrom(sendersId)
         elif sendersValue == voteRequest:
             if votedForThisTerm or currentState == candidate:
                 sendTo(sendersId,rejectVoteRequest)
@@ -170,9 +217,7 @@ def actOnMsg(sendersId, sendersTerm, sendersValue):
         setCurrentTermTo(sendersTerm)
         setCurrentStateTo(follower)
         if sendersValue == heartBeat:
-            refreshElectionTimeout()
-            if currentLeader != sendersId:
-                setCurrentLeaderTo(sendersId)
+            actOnHeartBeatReceivedFrom(sendersId)
         elif sendersValue == voteRequest:
             if votedForThisTerm or currentState == candidate:
                 sendTo(sendersId,rejectVoteRequest)
@@ -187,6 +232,7 @@ def initiateElection():
     startNewElectionRound()
 
 def startNewElectionRound():
+    global acceptedHosts
     setCurrentElectionRoundTo(currentElectionRound+1)
     acceptedHosts = Set([])
     voteFor(myId)
