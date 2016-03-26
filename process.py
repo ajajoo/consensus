@@ -1,9 +1,9 @@
-lPort = 6500
-mPort = 34422
-mHost = "128.10.12.136"
-otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu11.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
-waitTill = 1458968967.87
-maxCrashes = 5
+lPort = 5345
+mPort = 53939
+mHost = "128.10.12.131"
+otherHosts = {1: 'xinu01.cs.purdue.edu', 2: 'xinu02.cs.purdue.edu', 3: 'xinu03.cs.purdue.edu', 4: 'xinu04.cs.purdue.edu', 5: 'xinu05.cs.purdue.edu', 6: 'xinu06.cs.purdue.edu', 7: 'xinu07.cs.purdue.edu', 8: 'xinu08.cs.purdue.edu', 9: 'xinu09.cs.purdue.edu', 10: 'xinu10.cs.purdue.edu'}
+waitTill = 1458704772.1
+maxCrashes = 0
 maxMsgLen = 1024
 import sys
 import os
@@ -31,18 +31,17 @@ currentState = 0   # 0 for follower 1 for candidate 2 for leader
 leader = 2; candidate = 1; follower = 0;
 currentTerm = 0 # everyone starts in 0th term
 currentElectionRound = 0
-timeoutRangeMin = 25000 # this is in millisecond
-timeoutRangeMax = 33000 # this is in millisecond
+timeoutRangeMin = 100 # this is in millisecond
+timeoutRangeMax = 500 # this is in millisecond
 electionTimeout = 0 # this will be set in main for the first time
 heartBeatTimeout = 0 # useful only if I am leader
 votedForThisTerm = False
-countdown = 0
 
 def sendLog(msg,level):
     if level<1:
         return
     #print(msg)
-    msg = time.strftime("%H:%M:%S", time.localtime(time.time())) + " -- HID: "+str(myId)+" -- "+" Current Term: "+str(currentTerm)+ " -- " +msg
+    msg = time.strftime("%H:%M:%S", time.localtime(time.time())) + " -- HID: "+str(myId)+ " --  Current Term: " + str(currentTerm) + " -- " +msg
     sock = socket(AF_INET,SOCK_STREAM)
     sock.connect((mHost, mPort))
     try:
@@ -98,14 +97,6 @@ def sendHeartBeatToAll():
     checkIfAnyOneDied()
     for host in otherHosts.keys():
         sendHeartBeatTo(host)
-    global countdown
-    sendLog("Sending heartbeat",2)
-    countdown+=1
-    if(countdown<5):
-        for host in otherHosts.keys():
-            sendHeartBeatTo(host)
-    else:
-        sys.exit(0)
     refreshHeartBeatTimeout()
 
 def sendHeartBeatTo(hid):
@@ -250,24 +241,22 @@ def startNewElectionRound():
 if __name__ == "__main__":
         # formatting global parameters
     setUpCommonParameters()
-    print "myId ",myId," ",mPort
         # making udp socket to listen
     listner = socket(AF_INET, SOCK_DGRAM)
     listner.bind((myName,lPort))
     sendLog("binded",0)
         # sleeping to ensure that every one gets binded before anyone starts sending
-    time.sleep((2*len(otherHosts)+15))
+    time.sleep(2*len(otherHosts)+15)
     refreshElectionTimeout()
     refreshHeartBeatTimeout()
-    sendLog("Election timeout is" + str(electionTimeout),0)
-    timeout = len(otherHosts)
+    timeout = 1*len(otherHosts)
     timeoutAt = time.time()+10*60
         # entering into infi loop
     while time.time()<timeoutAt:
         reader, writer, excep = select([listner],[],[],timeout)
         if reader:
             recvMsg(reader[0])
-        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and currentElectionRound == 0:            
+        if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and !contestingElection():
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
