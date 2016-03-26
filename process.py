@@ -37,7 +37,6 @@ electionTimeout = 0 # this will be set in main for the first time
 heartBeatTimeout = 0 # useful only if I am leader
 votedForThisTerm = False
 votedFor = emptyVal
-countdown = 0
 
 def sendLog(msg,level):
     if level<1:
@@ -106,17 +105,12 @@ def checkIfAnyOneDied():
     temp = []
 
 def sendHeartBeatToAll():
-    global countdown
     global respondedToHeartBeat
     sendLog("Sending heartbeat",0)
-    countdown+=1
     checkIfAnyOneDied()
     respondedToHeartBeat = Set([])
-    if(countdown<5):
-    	for host in otherHosts.keys():
-	    sendHeartBeatTo(host)
-    else:
-	sys.exit(0)
+    for host in otherHosts.keys():
+        sendHeartBeatTo(host)
     refreshHeartBeatTimeout()
 
 def sendHeartBeatTo(hid):
@@ -278,7 +272,7 @@ if __name__ == "__main__":
     time.sleep(2*len(otherHosts)+15)
     refreshElectionTimeout()
     refreshHeartBeatTimeout()
-    timeout = 1*len(otherHosts)
+    timeout = (timeoutRangeMin/10)*.001
     timeoutAt = time.time()+40*60
         # entering into long listening loop
     while time.time()<timeoutAt:
