@@ -285,8 +285,8 @@ if __name__ == "__main__":
             recvMsg(reader[0])
         if electionTimeout<=int(round(time.time()*1000)) and currentState != leader and not contestingElection():
             if currentLeader != emptyVal:
-                currentLeaderDied()
                 diedDetected(currentLeader)
+                currentLeaderDied()
             initiateElection()
         if currentState == leader and heartBeatTimeout<=int(round(time.time()*1000)):
             sendHeartBeatToAll()
