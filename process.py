@@ -135,7 +135,8 @@ def setCurrentLeaderTo(this):
     if currentLeader != this and this != emptyVal:
         sendLog("node "+str(this)+" is elected as new leader",2)
     currentLeader = this
-    setCurrentElectionRoundTo(0)
+    if this != emptyVal:
+        setCurrentElectionRoundTo(0)
 
 def sendHeartBeatResponseTo(this):
     sendTo(this,heartBeatResponse)
