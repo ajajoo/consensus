@@ -70,8 +70,9 @@ def fillRespondedToHeartBeat():
         respondedToHeartBeat.add(i)
 
 def currentLeaderDied():
-    sendLog("leader node "+str(currentLeader)+" has crashed",2)
-    setCurrentLeaderTo(emptyVal)
+    if currentLeader != emptyVal:
+        sendLog("leader node "+str(currentLeader)+" has crashed",2)
+        setCurrentLeaderTo(emptyVal)
 
 def sendVoteRequestToAll(): 
     for host in otherHosts.keys():
@@ -81,6 +82,8 @@ def sendVoteRequestTo(host):
     sendTo(host,voteRequest)
 
 def died(this):
+    if this == emptyVal:
+        return
     global otherHosts
     global respondedToHeartBeat
     sendLog("Node "+str(this)+" died",0)
